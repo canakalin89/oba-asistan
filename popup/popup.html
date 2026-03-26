@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ÖBA Asistan</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3L1 9L12 15L21 10.09V17H23V9L12 3Z" fill="url(#grad)"/>
+            <path d="M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" fill="url(#grad2)"/>
+            <defs>
+              <linearGradient id="grad" x1="1" y1="3" x2="23" y2="17" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#06b6d4"/>
+                <stop offset="1" stop-color="#3b82f6"/>
+              </linearGradient>
+              <linearGradient id="grad2" x1="5" y1="13" x2="19" y2="21" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#06b6d4"/>
+                <stop offset="1" stop-color="#3b82f6"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>ÖBA Asistan</h1>
+          <span class="version">v1.0</span>
+        </div>
+      </div>
+      <div id="statusDot" class="status-dot inactive"></div>
+    </header>
+
+    <!-- Alert Banner (Hidden by default) -->
+    <div id="alertBanner" class="alert-banner hidden">
+      <span class="alert-icon">⚠️</span>
+      <span id="alertText" class="alert-text">Sınav tespit edildi!</span>
+    </div>
+
+    <!-- Wrong Page Banner -->
+    <div id="wrongPageBanner" class="wrong-page-banner hidden">
+      <span>📍</span>
+      <span>Bir eğitim oynatma sayfasına gidin</span>
+    </div>
+
+    <!-- Main Control -->
+    <div class="control-section">
+      <button id="toggleBtn" class="toggle-btn">
+        <span class="btn-icon" id="btnIcon">▶</span>
+        <span class="btn-text" id="btnText">Başlat</span>
+      </button>
+    </div>
+
+    <!-- Status -->
+    <div class="status-section">
+      <div class="status-label">Durum</div>
+      <div id="statusText" class="status-text">Bekliyor</div>
+    </div>
+
+    <!-- Progress -->
+    <div id="progressSection" class="progress-section hidden">
+      <div class="progress-header">
+        <span class="progress-label">İlerleme</span>
+        <span id="progressCount" class="progress-count">0 / 0</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+      </div>
+      <div id="currentModule" class="current-module"></div>
+    </div>
+
+    <!-- Log -->
+    <div class="log-section">
+      <div class="log-header">
+        <span>Son İşlemler</span>
+        <button id="clearLogBtn" class="clear-log-btn" title="Temizle">✕</button>
+      </div>
+      <div id="logContainer" class="log-container">
+        <div class="log-empty">Henüz işlem yok</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Öğretmenler için ❤️ ile yapıldı</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
