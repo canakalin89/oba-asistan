@@ -7,20 +7,37 @@ const VideoHandler = (() => {
   let isActive = false;
   let player = null;
   let checkInterval = null;
+  let focusInterval = null;
+  let focusGuardsInstalled = false;
   let originalOnBlur = null;
   let originalOnFocus = null;
+  // Dinleyici eklenmiş video öğeleri — aynı öğeye iki kez bağlanmayı önler
+  const monitoredVideos = new WeakSet();
 
   /**
    * Odak (focus) bypass — sekme değişince video durmasın
    */
   function bypassFocusCheck() {
-    // Orijinal handler'ları sakla
+    // Periyodik focus tetikleyicisi her başlatmada kurulur, stop() ile temizlenir
+    if (!focusInterval) {
+      focusInterval = setInterval(() => {
+        if (isActive) {
+          window.dispatchEvent(new Event('focus'));
+        }
+      }, 5000);
+    }
+
+    // Orijinal handler'ları sakla (stop() bunları geri yükler)
     originalOnBlur = window.onblur;
     originalOnFocus = window.onfocus;
 
     // onblur'u devre dışı bırak
     window.onblur = null;
     window.onfocus = null;
+
+    // Aşağıdaki kurulum yalnızca bir kez yapılır; tekrar başlatmada dinleyiciler katlanmaz
+    if (focusGuardsInstalled) return;
+    focusGuardsInstalled = true;
 
     // Page Visibility API override
     try {
@@ -36,22 +53,15 @@ const VideoHandler = (() => {
       HumanBehavior.log('Visibility API override başarısız, alternatif yöntem deneniyor', 'warning');
     }
 
-    // visibilitychange event'ini engelle
+    // visibilitychange event'ini engelle (yalnızca asistan aktifken)
     document.addEventListener('visibilitychange', (e) => {
-      e.stopImmediatePropagation();
+      if (isActive) e.stopImmediatePropagation();
     }, true);
 
-    // blur event'ini engelle
+    // blur event'ini engelle (yalnızca asistan aktifken)
     window.addEventListener('blur', (e) => {
-      e.stopImmediatePropagation();
+      if (isActive) e.stopImmediatePropagation();
     }, true);
-
-    // focus event'ini simüle etmek için periyodik tetikleme
-    setInterval(() => {
-      if (isActive) {
-        window.dispatchEvent(new Event('focus'));
-      }
-    }, 5000);
 
     HumanBehavior.log('Odak bypass aktif — sekme değişiminde video durmayacak', 'success');
   }
@@ -65,20 +75,28 @@ const VideoHandler = (() => {
 
     player = videoEl;
 
+    // Bu öğeye daha önce dinleyici eklendiyse tekrar ekleme
+    if (monitoredVideos.has(videoEl)) return true;
+    monitoredVideos.add(videoEl);
+
+    // Dinleyiciler yalnızca asistan aktifken ve bu öğe hâlâ izlenen video iken çalışır
+    const isCurrent = () => isActive && player === videoEl;
+
     // Video durduğunda tekrar başlat
-    player.addEventListener('pause', () => {
-      if (isActive && !player.ended) {
+    videoEl.addEventListener('pause', () => {
+      if (isCurrent() && !videoEl.ended) {
         HumanBehavior.log('Video durdu, tekrar başlatılıyor...', 'action');
         HumanBehavior.wait(500 + Math.random() * 1000).then(() => {
-          if (isActive && player.paused && !player.ended) {
-            player.play().catch(() => {});
+          if (isCurrent() && videoEl.paused && !videoEl.ended) {
+            videoEl.play().catch(() => {});
           }
         });
       }
     });
 
     // Video bittiğinde bildir
-    player.addEventListener('ended', () => {
+    videoEl.addEventListener('ended', () => {
+      if (!isCurrent()) return;
       HumanBehavior.log('Video tamamlandı!', 'success');
       HumanBehavior.updateStatus('completed', 'Video bitti, sonraki içeriğe geçiliyor...');
       
@@ -88,9 +106,9 @@ const VideoHandler = (() => {
 
     // İlerleme takibi
     let lastReportedPercent = 0;
-    player.addEventListener('timeupdate', () => {
-      if (!player.duration) return;
-      const percent = Math.floor((player.currentTime / player.duration) * 100);
+    videoEl.addEventListener('timeupdate', () => {
+      if (!isCurrent() || !videoEl.duration) return;
+      const percent = Math.floor((videoEl.currentTime / videoEl.duration) * 100);
       if (percent >= lastReportedPercent + 10) {
         lastReportedPercent = percent;
         HumanBehavior.log(`Video ilerleme: %${percent}`, 'info');
@@ -122,13 +140,13 @@ const VideoHandler = (() => {
    * Periyodik kontrol — video hala oynuyor mu?
    */
   function startWatchdog() {
+    if (checkInterval) clearInterval(checkInterval);
     checkInterval = setInterval(async () => {
       if (!isActive) return;
 
       const videoEl = document.querySelector('video');
       if (videoEl && videoEl !== player) {
         // Yeni video elementi yüklendi (sayfa içi geçiş)
-        player = videoEl;
         findAndMonitorVideo();
         HumanBehavior.log('Yeni video tespit edildi', 'info');
       }
@@ -168,6 +186,10 @@ const VideoHandler = (() => {
     if (checkInterval) {
       clearInterval(checkInterval);
       checkInterval = null;
+    }
+    if (focusInterval) {
+      clearInterval(focusInterval);
+      focusInterval = null;
     }
 
     // Orijinal handler'ları geri yükle

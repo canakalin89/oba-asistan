@@ -19,9 +19,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.data.status === 'active' || message.data.status === 'watching' || 
           message.data.status === 'scorm' || message.data.status === 'content') {
         updateBadge(true);
-      } else if (message.data.status === 'stopped') {
+      } else if (message.data.status === 'stopped' || message.data.status === 'all-done') {
         updateBadge(false);
       }
+      // 'exam-found': EXAM_ALERT'in koyduğu ⚠ rozeti korunur
       break;
 
     case 'EXAM_ALERT':

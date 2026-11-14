@@ -19,7 +19,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://oba.gov.tr/*"],
+      "matches": ["*://oba.gov.tr/*", "*://*.oba.gov.tr/*"],
       "js": [
         "utils/human-behavior.js",
         "content/video-handler.js",

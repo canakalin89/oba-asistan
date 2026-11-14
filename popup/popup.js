@@ -93,7 +93,12 @@ function addLog(message, type = 'info', timestamp = '') {
     'action': '🤖'
   }[type] || '📘';
 
-  entry.innerHTML = `<span class="time">${time}</span>${prefix} ${message}`;
+  // Mesajlar sayfadan gelen metin (modül adları vb.) içerebilir;
+  // innerHTML yerine textContent kullanarak HTML enjeksiyonunu önle
+  const timeEl = document.createElement('span');
+  timeEl.className = 'time';
+  timeEl.textContent = time;
+  entry.append(timeEl, `${prefix} ${message}`);
   
   // En üste ekle
   logContainer.prepend(entry);
@@ -191,7 +196,7 @@ chrome.runtime.onMessage.addListener((message) => {
       break;
     case 'STATUS_UPDATE':
       statusText.textContent = message.data.detail || message.data.status;
-      if (message.data.status === 'stopped') updateUI(false);
+      if (['stopped', 'all-done', 'exam-found'].includes(message.data.status)) updateUI(false);
       break;
     case 'PROGRESS_UPDATE':
       updateProgress(message.data.completed, message.data.total, message.data.currentLabel);

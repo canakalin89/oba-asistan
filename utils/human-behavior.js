@@ -59,6 +59,24 @@ const HumanBehavior = (() => {
   }
 
   /**
+   * Eklentiye güvenli mesaj gönderimi.
+   * MV3'te chrome.runtime.sendMessage bir Promise döndürür; popup kapalıysa
+   * veya kimse yanıt vermezse Promise reddedilir. try/catch bunu yakalamaz,
+   * konsolda "Uncaught (in promise)" hatası oluşur. Bu yüzden .catch() şart.
+   * Uzantı yeniden yüklendiyse (context invalidated) senkron hata da fırlatabilir.
+   */
+  function sendMessage(message) {
+    try {
+      const result = chrome.runtime.sendMessage(message);
+      if (result && typeof result.catch === 'function') {
+        result.catch(() => {});
+      }
+    } catch (e) {
+      // Extension context might not be available
+    }
+  }
+
+  /**
    * Log with timestamp
    */
   function log(message, type = 'info') {
@@ -74,38 +92,30 @@ const HumanBehavior = (() => {
     console.log(`[ÖBA Asistan ${timestamp}] ${prefix} ${message}`);
     
     // Send to popup via chrome messaging
-    try {
-      chrome.runtime.sendMessage({
-        type: 'LOG',
-        data: { message, logType: type, timestamp }
-      });
-    } catch (e) {
-      // Extension context might not be available
-    }
+    sendMessage({
+      type: 'LOG',
+      data: { message, logType: type, timestamp }
+    });
   }
 
   /**
    * Durum güncelleme — popup'a bildir
    */
   function updateStatus(status, detail = '') {
-    try {
-      chrome.runtime.sendMessage({
-        type: 'STATUS_UPDATE',
-        data: { status, detail }
-      });
-    } catch (e) {}
+    sendMessage({
+      type: 'STATUS_UPDATE',
+      data: { status, detail }
+    });
   }
 
   /**
    * İlerleme güncelleme
    */
   function updateProgress(completed, total, currentLabel = '') {
-    try {
-      chrome.runtime.sendMessage({
-        type: 'PROGRESS_UPDATE',
-        data: { completed, total, currentLabel }
-      });
-    } catch (e) {}
+    sendMessage({
+      type: 'PROGRESS_UPDATE',
+      data: { completed, total, currentLabel }
+    });
   }
 
   return {
@@ -114,6 +124,7 @@ const HumanBehavior = (() => {
     naturalClick,
     smoothScrollTo,
     log,
+    sendMessage,
     updateStatus,
     updateProgress
   };

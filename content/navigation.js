@@ -14,6 +14,18 @@
 const Navigation = (() => {
   let isActive = false;
   let moduleList = [];
+  let listenersInstalled = false;
+  let isNavigating = false;
+
+  /**
+   * Tüm asistanın durdurulmasını iste (main.js dinler).
+   * Sadece Navigation'ı durdurmak yetmez; video/SCORM modülleri ve kayıtlı
+   * isRunning durumu açık kalırsa sayfa yenilendiğinde asistan devam eder.
+   */
+  function requestFullStop(reason) {
+    stop();
+    window.dispatchEvent(new CustomEvent('oba-asistan:stop-requested', { detail: { reason } }));
+  }
 
   /**
    * Sidebar'daki modülleri parse et (OBA-spesifik DOM yapısı)
@@ -63,7 +75,17 @@ const Navigation = (() => {
    */
   async function goToNext() {
     if (!isActive) return;
+    // Aynı anda iki geçiş başlamasın (ör. iki tamamlanma olayı art arda gelirse)
+    if (isNavigating) return;
+    isNavigating = true;
+    try {
+      await navigateToNext();
+    } finally {
+      isNavigating = false;
+    }
+  }
 
+  async function navigateToNext() {
     parseModules();
 
     if (moduleList.length === 0) {
@@ -101,7 +123,7 @@ const Navigation = (() => {
     if (nextIndex < 0 || nextIndex >= moduleList.length) {
       HumanBehavior.log('🎉 Tüm modüller tamamlandı!', 'success');
       HumanBehavior.updateStatus('all-done', 'Tüm eğitim modülleri tamamlandı!');
-      stop();
+      requestFullStop('all-done');
       return;
     }
 
@@ -113,7 +135,7 @@ const Navigation = (() => {
       HumanBehavior.updateStatus('locked', `Sonraki modül henüz açılmadı: ${nextModule.text}`);
       // Sayfayı yenile, belki kilit açılmıştır
       await HumanBehavior.wait(5000);
-      window.location.reload();
+      if (isActive) window.location.reload();
       return;
     }
 
@@ -122,14 +144,12 @@ const Navigation = (() => {
       HumanBehavior.log('⚠️ SINAV TESPİT EDİLDİ: ' + nextModule.text, 'warning');
       HumanBehavior.updateStatus('exam-found', '⚠️ Sınav modülü! Manuel müdahale gerekli.');
       
-      try {
-        chrome.runtime.sendMessage({
-          type: 'EXAM_ALERT',
-          data: { moduleName: nextModule.text }
-        });
-      } catch (e) {}
-      
-      stop();
+      HumanBehavior.sendMessage({
+        type: 'EXAM_ALERT',
+        data: { moduleName: nextModule.text }
+      });
+
+      requestFullStop('exam');
       return;
     }
 
@@ -139,8 +159,10 @@ const Navigation = (() => {
     HumanBehavior.updateStatus('navigating', `Geçiliyor: ${nextModule.text}`);
     
     await HumanBehavior.randomDelay(3000, 8000);
+    if (!isActive) return; // Beklerken durdurulduysa tıklama
     HumanBehavior.smoothScrollTo(nextModule.element);
     await HumanBehavior.wait(1000);
+    if (!isActive) return;
     HumanBehavior.naturalClick(nextModule.element);
 
     // İlerleme güncelle
@@ -152,6 +174,10 @@ const Navigation = (() => {
    * Event listener'ları kur
    */
   function setupListeners() {
+    // Durdur/Başlat döngüsünde dinleyiciler katlanmasın
+    if (listenersInstalled) return;
+    listenersInstalled = true;
+
     window.addEventListener('oba-asistan:video-ended', () => {
       if (isActive) {
         HumanBehavior.log('Video bitti, sonraki modüle geçiliyor...', 'action');

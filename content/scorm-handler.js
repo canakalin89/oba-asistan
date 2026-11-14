@@ -45,6 +45,7 @@ const ScormHandler = (() => {
       
       if (isNavigationButton && el.offsetParent !== null) { // Görünür olan
         await HumanBehavior.randomDelay(2000, 5000);
+        if (!isActive) return false; // Beklerken durdurulduysa tıklama
         HumanBehavior.smoothScrollTo(el);
         await HumanBehavior.wait(500);
         HumanBehavior.naturalClick(el);
@@ -80,6 +81,7 @@ const ScormHandler = (() => {
     let clickAttempts = 0;
     const maxAttempts = 100; // Sonsuz döngüyü önle
 
+    if (checkInterval) clearInterval(checkInterval);
     checkInterval = setInterval(async () => {
       if (!isActive) return;
       if (clickAttempts >= maxAttempts) {
@@ -90,6 +92,7 @@ const ScormHandler = (() => {
       // Tamamlanma kontrolü
       if (checkCompletion()) {
         clearInterval(checkInterval);
+        checkInterval = null;
         return;
       }
 
@@ -99,6 +102,7 @@ const ScormHandler = (() => {
         const clicked = await findAndClickNext(scormFrame.doc);
         if (clicked) clickAttempts++;
       }
+      if (!isActive) return; // Beklerken durdurulduysa devam etme
 
       // Ana sayfadaki ilerleme butonlarını da kontrol et
       const mainClicked = await findAndClickNext(document);

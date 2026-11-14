@@ -4,6 +4,7 @@
  */
 const ObaAsistan = (() => {
   let isRunning = false;
+  let restartTimer = null;
 
   /**
    * Eğitim oynatma sayfasında mıyız?
@@ -44,8 +45,12 @@ const ObaAsistan = (() => {
   /**
    * Tüm modülleri durdur
    */
-  function stop() {
+  function stop(finalStatus = 'stopped', finalDetail = 'ÖBA Asistan durduruldu') {
     isRunning = false;
+    if (restartTimer) {
+      clearTimeout(restartTimer);
+      restartTimer = null;
+    }
 
     VideoHandler.stop();
     ScormHandler.stop();
@@ -53,7 +58,7 @@ const ObaAsistan = (() => {
     Navigation.stop();
 
     HumanBehavior.log('ÖBA Asistan durduruldu', 'info');
-    HumanBehavior.updateStatus('stopped', 'ÖBA Asistan durduruldu');
+    HumanBehavior.updateStatus(finalStatus, finalDetail);
 
     // State'i kaydet
     chrome.storage.local.set({ isRunning: false });
@@ -105,6 +110,47 @@ const ObaAsistan = (() => {
     }
   });
 
+  // Navigation sınav veya bitiş tespit edince tüm asistanı durdur
+  // (yalnızca Navigation durursa video/SCORM açık kalır ve sayfa yenilenince devam ederdi)
+  window.addEventListener('oba-asistan:stop-requested', (e) => {
+    if (!isRunning) return;
+    const reason = e.detail?.reason;
+    // Genel "durduruldu" yerine sınav/bitiş durumunu gönder; böylece popup mesajı
+    // ve sınav rozeti (⚠) silinmez
+    if (reason === 'exam') {
+      stop('exam-found', '⚠️ Sınav modülü! Manuel müdahale gerekli.');
+    } else if (reason === 'all-done') {
+      stop('all-done', 'Tüm eğitim modülleri tamamlandı!');
+    } else {
+      stop();
+    }
+  });
+
+  /**
+   * Sayfa içi geçişten sonra sayfaya bağlı modülleri yeniden başlat.
+   * Modüller zaten aktif olduğundan start() tek başına hiçbir şey yapmaz;
+   * önce durdurulup sonra başlatılmaları gerekir.
+   */
+  function restartPageModules() {
+    VideoHandler.stop();
+    ScormHandler.stop();
+    ContentHandler.stop();
+
+    if (restartTimer) clearTimeout(restartTimer);
+    restartTimer = setTimeout(() => {
+      restartTimer = null;
+      if (!isRunning) return;
+      if (!isCoursePage()) {
+        HumanBehavior.log('Eğitim sayfasından çıkıldı, asistan durduruluyor', 'warning');
+        stop();
+        return;
+      }
+      VideoHandler.start();
+      ScormHandler.start();
+      ContentHandler.start();
+    }, 2000);
+  }
+
   // Sayfa URL'i değiştiğinde (SPA navigasyon)
   let lastUrl = location.href;
   new MutationObserver(() => {
@@ -113,11 +159,7 @@ const ObaAsistan = (() => {
       lastUrl = url;
       if (isRunning) {
         HumanBehavior.log('Sayfa değişti, modüller yeniden başlatılıyor...', 'action');
-        setTimeout(() => {
-          VideoHandler.start();
-          ScormHandler.start();
-          ContentHandler.start();
-        }, 2000);
+        restartPageModules();
       }
     }
   }).observe(document, { subtree: true, childList: true });
