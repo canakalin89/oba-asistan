@@ -14,7 +14,7 @@ OBA eğitim videolarını arka planda otomatik izleyen Chrome uzantısı. Öğre
 
 1. Bu repoyu klonlayın:
    ```bash
-   git clone https://github.com/KULLANICI_ADI/oba-asistan.git
+   git clone https://github.com/canakalin89/oba-asistan.git
    ```
 2. Chrome'da `chrome://extensions/` sayfasını açın
 3. **Geliştirici modu**nu açın (sağ üst köşe)
